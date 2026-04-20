@@ -293,7 +293,7 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        *(p->pgref)--;
+        *p->pgref--;
         if (*(p->pgref) == 0) {
           freevm(p->pgdir);
           kfree((uint*)p->pgref);
@@ -570,9 +570,9 @@ clone (void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack)
   */
   np->ustack = stack; // the bottom of user stack for this newly created "thread"
   uint ustack = (uint)stack + PGSIZE;
-  *((uint *)ustack) = 0xffffffff; stack -= 4;
-  *((uint *)ustack) = arg2;       stack -= 4;
-  *((uint *)ustack) = arg1;       stack -= 4;
+  ustack -= 4; *((uint *)ustack) = 0xffffffff;
+  ustack -= 4; *((uint *)ustack) = arg2;      
+  ustack -= 4; *((uint *)ustack) = arg1;      
   np->tf->esp = ustack;
   np->tf->eip = (uint)fcn;
 
@@ -613,7 +613,7 @@ join(void **stack)
         kfree(p->kstack);
         p->kstack = 0;
         //can not call freevm without condition, because it is shared memory
-        *(p->pgref)--;
+        *p->pgref--;
         if (*(p->pgref) == 0) {
           freevm(p->pgdir);
           kfree((uint*)p->pgref);
