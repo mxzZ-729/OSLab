@@ -143,3 +143,35 @@ thread_join(void)
   free(raw);
   return pid;
 }
+
+inline int
+fetch_and_add(int *variable, int value)
+{
+  asm volatile (
+    "lock; xaddl %0, %1"
+    : "+r" (value), "+m" (*variable)
+    : 
+    : "memory"
+  );
+  return value;
+}
+
+void 
+lock_init(lock_t *lock)
+{
+  lock->ticket = 0;
+  lock->turn = 0;
+}
+
+void
+lock_acquire(lock_t *lock)
+{
+  int myturn = fetch_and_add(&lock->ticket, 1);
+  while (myturn != lock->turn);
+}
+
+void 
+lock_release(lock_t *lock)
+{
+  fetch_and_add(&lock->turn, 1);
+}
