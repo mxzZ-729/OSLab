@@ -34,11 +34,13 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct spinlock;
 // Per-process state
 struct proc {
-  uint sz;                     // Size of process memory (bytes)
+  uint *sz;                    // Shared Size of process memory (bytes)
   pde_t* pgdir;                // Page table
-  uint *pgref;                   // Number of pgdir's reference
+  uint *pgref;                 // Number of pgdir's reference (userinit中也要改)
+  struct spinlock *memlock;    // Memlock for sz changing situation
   char *kstack;                // Bottom of kernel stack for this process
   char *ustack;                // Bottom of user stack for this thread(memory shared process)
   enum procstate state;        // Process state

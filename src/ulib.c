@@ -122,7 +122,7 @@ thread_create(void(*start_routine)(void *, void *), void *arg1, void *arg2)
 
   pid = clone(start_routine, arg1, arg2, stack);
   if (pid < 0) {
-    free(stack);
+    free(raw);
     return -1;
   }
   return pid;

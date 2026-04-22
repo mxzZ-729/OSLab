@@ -50,7 +50,7 @@ sys_sbrk(void)
 
   if(argint(0, &n) < 0)
     return -1;
-  addr = myproc()->sz;
+  addr = *myproc()->sz;
   if(growproc(n) < 0)
     return -1;
   return addr;
@@ -93,12 +93,22 @@ sys_uptime(void)
 int 
 sys_clone(void) 
 {
-  void *fcn, *arg1, *arg2, *stack;
+  void (*fcn)(void *, void *);
+  void *arg1, *arg2, *stack;
 
-  argint(0, (int*)&fcn);
-  argint(1, (int*)&arg1);
-  argint(2, (int*)&arg2);
-  argint(3, (int*)&stack);
+  if (argint(0, (int*)&fcn) < 0)
+    return -1;
+  if (argint(1, (int*)&arg1) < 0)
+    return -1;
+  if (argint(2, (int*)&arg2) < 0)
+    return -1;
+  if (argptr(3, &stack, PGSIZE) < 0)
+    return -1;
+
+  if (fcn == 0)
+    return -1;
+  if (((uint)stack % PGSIZE) != 0)
+    return -1;
 
   return clone(fcn, arg1, arg2, stack);
 }
@@ -108,7 +118,8 @@ sys_join(void)
 {
   void **stack;
 
-  argint(0, (int*)&stack);
+  if (argptr(0, (char **)&stack, sizeof(void *)) < 0)
+    return -1;
 
   return join(stack);
 }

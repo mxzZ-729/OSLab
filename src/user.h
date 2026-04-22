@@ -1,8 +1,8 @@
 struct stat;
 struct rtcdate;
 typedef struct {
-    volatile ticket;
-    volatile turn;
+    volatile int ticket;
+    volatile int turn;
 } lock_t;
 
 // system calls

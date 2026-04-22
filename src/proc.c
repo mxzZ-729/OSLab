@@ -129,7 +129,16 @@ userinit(void)
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
   inituvm(p->pgdir, _binary_initcode_start, (int)_binary_initcode_size);
-  p->sz = PGSIZE;
+
+  p->sz = (uint *)kalloc();
+  p->pgref = (uint *)kalloc();
+  p->memlock = (struct spinlock *)kalloc();
+  if (p->sz == 0 || p->pgref == 0 || p->memlock == 0)
+    panic("userinit meta");
+
+  *p->sz = PGSIZE;
+  *p->pgref = 1;
+  initlock(p->memlock, "memlock");
   memset(p->tf, 0, sizeof(*p->tf));
   p->tf->cs = (SEG_UCODE << 3) | DPL_USER;
   p->tf->ds = (SEG_UDATA << 3) | DPL_USER;
@@ -161,16 +170,23 @@ growproc(int n)
   uint sz;
   struct proc *curproc = myproc();
 
-  sz = curproc->sz;
+  acquire(curproc->memlock);
+
+  sz = *curproc->sz;
   if(n > 0){
-    if((sz = allocuvm(curproc->pgdir, sz, sz + n)) == 0)
+    if((sz = allocuvm(curproc->pgdir, sz, sz + n)) == 0) {
+      release(curproc->memlock);
       return -1;
+    }
   } else if(n < 0){
-    if((sz = deallocuvm(curproc->pgdir, sz, sz + n)) == 0)
+    if((sz = deallocuvm(curproc->pgdir, sz, sz + n)) == 0) {
+      release(curproc->memlock);
       return -1;
+    }
   }
-  curproc->sz = sz;
+  *curproc->sz = sz;
   switchuvm(curproc);
+  release(curproc->memlock);
   return 0;
 }
 
@@ -190,16 +206,32 @@ fork(void)
   }
 
   // Copy process state from proc.
-  if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
+  if((np->pgdir = copyuvm(curproc->pgdir, *curproc->sz)) == 0){
     kfree(np->kstack);
     np->kstack = 0;
     np->state = UNUSED;
     return -1;
   }
   // Set np'pgdir is only used by itself
+  np->sz = (uint *)kalloc();
   np->pgref = (uint*)kalloc();
+  np->memlock = (struct spinlock *)kalloc();
+  if (np->sz == 0 || np->pgref == 0 || np->memlock == 0) {
+    if (np->sz) kfree((char *)np->sz);
+    if (np->pgref) kfree((char *)np->pgref);
+    if (np->memlock) kfree((char *)np->memlock);
+
+    freevm(np->pgdir);
+    np->pgdir = 0;
+    kfree(np->kstack);
+    np->kstack = 0;
+    np->state = UNUSED;
+    return -1;
+  }
+  *(np->sz) = *curproc->sz;
   *(np->pgref) = 1; 
-  np->sz = curproc->sz;
+  initlock(np->memlock, "memlock");
+  // np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
 
@@ -293,11 +325,19 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        *p->pgref--;
+        (*p->pgref)--;
         if (*(p->pgref) == 0) {
           freevm(p->pgdir);
-          kfree((uint*)p->pgref);
+          kfree((char*)p->pgref);
+          kfree((char*)p->sz);
+          kfree((char*)p->memlock);
         }
+        p->pgdir = 0;
+        p->pgref = 0;
+        p->sz = 0;
+        p->memlock = 0;
+        p->ustack = 0;
+
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
@@ -553,9 +593,10 @@ clone (void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack)
   }
 
   np->pgdir = curproc->pgdir;
-  np->pgref = curproc->pgref;
-  *(np->pgref)++;
   np->sz = curproc->sz;
+  np->pgref = curproc->pgref;
+  np->memlock = curproc->memlock;
+  (*np->pgref)++;
   np->parent = curproc;
   *np->tf = *curproc->tf;
 
@@ -570,9 +611,9 @@ clone (void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack)
   */
   np->ustack = stack; // the bottom of user stack for this newly created "thread"
   uint ustack = (uint)stack + PGSIZE;
-  ustack -= 4; *((uint *)ustack) = 0xffffffff;
-  ustack -= 4; *((uint *)ustack) = arg2;      
+  ustack -= 4; *((uint *)ustack) = arg2;
   ustack -= 4; *((uint *)ustack) = arg1;      
+  ustack -= 4; *((uint *)ustack) = 0xffffffff;      
   np->tf->esp = ustack;
   np->tf->eip = (uint)fcn;
 
@@ -609,21 +650,36 @@ join(void **stack)
         continue;
       havekids = 1;
       if (p->state == ZOMBIE) {
+        void *ustack = p->ustack;
         pid = p->pid;
+        if (copyout(curproc->pgdir, (uint)stack, (void *)&ustack, sizeof(ustack)) < 0) {
+          release(&ptable.lock);
+          return -1;
+        }
+        // *stack = p->ustack;
         kfree(p->kstack);
         p->kstack = 0;
         //can not call freevm without condition, because it is shared memory
-        *p->pgref--;
+        (*p->pgref)--;
         if (*(p->pgref) == 0) {
           freevm(p->pgdir);
-          kfree((uint*)p->pgref);
+          kfree((char*)p->pgref);
+          kfree((char*)p->sz);
+          kfree((char*)p->memlock);
         }
+        p->pgdir = 0;
+        p->pgref = 0;
+        p->sz = 0;
+        p->memlock = 0;
+        p->ustack = 0;
+
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
+        p->ustack = 0;
         p->state = UNUSED;
-        *stack = p->ustack;
+        
         release(&ptable.lock);
         return pid;
       }
