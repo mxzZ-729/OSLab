@@ -8504,78 +8504,83 @@ clone (void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack)
   if ((np = allocproc()) == 0) {
 8010443e:	e8 5d f3 ff ff       	call   801037a0 <allocproc>
 80104443:	85 c0                	test   %eax,%eax
-80104445:	0f 84 f0 00 00 00    	je     8010453b <clone+0x11b>
+80104445:	0f 84 f6 00 00 00    	je     80104541 <clone+0x121>
 8010444b:	89 c2                	mov    %eax,%edx
     return -1;
   }
 
   np->pgdir = curproc->pgdir;
 8010444d:	8b 43 04             	mov    0x4(%ebx),%eax
-80104450:	89 42 04             	mov    %eax,0x4(%edx)
   np->sz = curproc->sz;
-80104453:	8b 03                	mov    (%ebx),%eax
-80104455:	89 02                	mov    %eax,(%edx)
   np->pgref = curproc->pgref;
-80104457:	8b 43 08             	mov    0x8(%ebx),%eax
-8010445a:	89 42 08             	mov    %eax,0x8(%edx)
   np->memlock = curproc->memlock;
-8010445d:	8b 4b 0c             	mov    0xc(%ebx),%ecx
-80104460:	89 4a 0c             	mov    %ecx,0xc(%edx)
-  (*np->pgref)++;
+
   np->parent = curproc;
   *np->tf = *curproc->tf;
-80104463:	b9 13 00 00 00       	mov    $0x13,%ecx
-  (*np->pgref)++;
-80104468:	83 00 01             	addl   $0x1,(%eax)
+80104450:	b9 13 00 00 00       	mov    $0x13,%ecx
+80104455:	8b 7a 24             	mov    0x24(%edx),%edi
+  np->pgdir = curproc->pgdir;
+80104458:	89 42 04             	mov    %eax,0x4(%edx)
+  np->sz = curproc->sz;
+8010445b:	8b 03                	mov    (%ebx),%eax
+8010445d:	89 02                	mov    %eax,(%edx)
+  np->pgref = curproc->pgref;
+8010445f:	8b 43 08             	mov    0x8(%ebx),%eax
+80104462:	89 42 08             	mov    %eax,0x8(%edx)
+  np->memlock = curproc->memlock;
+80104465:	8b 43 0c             	mov    0xc(%ebx),%eax
+  np->parent = curproc;
+80104468:	89 5a 20             	mov    %ebx,0x20(%edx)
+  np->memlock = curproc->memlock;
+8010446b:	89 42 0c             	mov    %eax,0xc(%edx)
   * parameters for the function onto the stack in the reverse 
   * order that they are documented.
   * Then it modifies the instruction pointer (%eip) to point 
   * to the start of the function.
   */
   np->ustack = stack; // the bottom of user stack for this newly created "thread"
-8010446b:	8b 45 14             	mov    0x14(%ebp),%eax
-  np->parent = curproc;
-8010446e:	89 5a 20             	mov    %ebx,0x20(%edx)
+8010446e:	8b 45 14             	mov    0x14(%ebp),%eax
   *np->tf = *curproc->tf;
-80104471:	8b 7a 24             	mov    0x24(%edx),%edi
-80104474:	8b 73 24             	mov    0x24(%ebx),%esi
-80104477:	f3 a5                	rep movsl %ds:(%esi),%es:(%edi)
+80104471:	8b 73 24             	mov    0x24(%ebx),%esi
+80104474:	f3 a5                	rep movsl %ds:(%esi),%es:(%edi)
   np->ustack = stack; // the bottom of user stack for this newly created "thread"
-80104479:	89 42 14             	mov    %eax,0x14(%edx)
+80104476:	89 42 14             	mov    %eax,0x14(%edx)
   uint ustack = (uint)stack + PGSIZE;
   ustack -= 4; *((uint *)ustack) = arg2;
-8010447c:	8b 4d 14             	mov    0x14(%ebp),%ecx
+80104479:	8b 4d 14             	mov    0x14(%ebp),%ecx
   np->tf->esp = ustack;
   np->tf->eip = (uint)fcn;
 
   np->tf->eax = 0;
 
   for (i = 0; i < NOFILE; i++)
-8010447f:	31 f6                	xor    %esi,%esi
+8010447c:	31 f6                	xor    %esi,%esi
   ustack -= 4; *((uint *)ustack) = arg2;
-80104481:	8b 45 10             	mov    0x10(%ebp),%eax
+8010447e:	8b 45 10             	mov    0x10(%ebp),%eax
   for (i = 0; i < NOFILE; i++)
-80104484:	89 d7                	mov    %edx,%edi
+80104481:	89 d7                	mov    %edx,%edi
   ustack -= 4; *((uint *)ustack) = arg2;
-80104486:	89 81 fc 0f 00 00    	mov    %eax,0xffc(%ecx)
+80104483:	89 81 fc 0f 00 00    	mov    %eax,0xffc(%ecx)
   ustack -= 4; *((uint *)ustack) = arg1;      
-8010448c:	8b 45 0c             	mov    0xc(%ebp),%eax
-8010448f:	89 81 f8 0f 00 00    	mov    %eax,0xff8(%ecx)
+80104489:	8b 45 0c             	mov    0xc(%ebp),%eax
+8010448c:	89 81 f8 0f 00 00    	mov    %eax,0xff8(%ecx)
   ustack -= 4; *((uint *)ustack) = 0xffffffff;      
-80104495:	89 c8                	mov    %ecx,%eax
-80104497:	8d 89 f4 0f 00 00    	lea    0xff4(%ecx),%ecx
-8010449d:	c7 80 f4 0f 00 00 ff 	movl   $0xffffffff,0xff4(%eax)
-801044a4:	ff ff ff 
+80104492:	89 c8                	mov    %ecx,%eax
+80104494:	8d 89 f4 0f 00 00    	lea    0xff4(%ecx),%ecx
+8010449a:	c7 80 f4 0f 00 00 ff 	movl   $0xffffffff,0xff4(%eax)
+801044a1:	ff ff ff 
   np->tf->esp = ustack;
-801044a7:	8b 42 24             	mov    0x24(%edx),%eax
-801044aa:	89 48 44             	mov    %ecx,0x44(%eax)
+801044a4:	8b 42 24             	mov    0x24(%edx),%eax
+801044a7:	89 48 44             	mov    %ecx,0x44(%eax)
   np->tf->eip = (uint)fcn;
-801044ad:	8b 4d 08             	mov    0x8(%ebp),%ecx
-801044b0:	8b 42 24             	mov    0x24(%edx),%eax
-801044b3:	89 48 38             	mov    %ecx,0x38(%eax)
+801044aa:	8b 4d 08             	mov    0x8(%ebp),%ecx
+801044ad:	8b 42 24             	mov    0x24(%edx),%eax
+801044b0:	89 48 38             	mov    %ecx,0x38(%eax)
   np->tf->eax = 0;
-801044b6:	8b 42 24             	mov    0x24(%edx),%eax
-801044b9:	c7 40 1c 00 00 00 00 	movl   $0x0,0x1c(%eax)
+801044b3:	8b 42 24             	mov    0x24(%edx),%eax
+801044b6:	c7 40 1c 00 00 00 00 	movl   $0x0,0x1c(%eax)
+  for (i = 0; i < NOFILE; i++)
+801044bd:	8d 76 00             	lea    0x0(%esi),%esi
     if (curproc->ofile[i])
 801044c0:	8b 44 b3 34          	mov    0x34(%ebx,%esi,4),%eax
 801044c4:	85 c0                	test   %eax,%eax
@@ -8620,27 +8625,31 @@ clone (void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack)
 80104513:	e8 18 05 00 00       	call   80104a30 <acquire>
   np->state = RUNNABLE;
 80104518:	8b 55 e4             	mov    -0x1c(%ebp),%edx
-8010451b:	c7 42 18 03 00 00 00 	movl   $0x3,0x18(%edx)
+  (*np->pgref)++;
+8010451b:	8b 42 08             	mov    0x8(%edx),%eax
+  np->state = RUNNABLE;
+8010451e:	c7 42 18 03 00 00 00 	movl   $0x3,0x18(%edx)
+  (*np->pgref)++;
+80104525:	83 00 01             	addl   $0x1,(%eax)
   release(&ptable.lock);
-80104522:	c7 04 24 20 2d 11 80 	movl   $0x80112d20,(%esp)
-80104529:	e8 a2 04 00 00       	call   801049d0 <release>
+80104528:	c7 04 24 20 2d 11 80 	movl   $0x80112d20,(%esp)
+8010452f:	e8 9c 04 00 00       	call   801049d0 <release>
 
   return pid;
-8010452e:	83 c4 10             	add    $0x10,%esp
+80104534:	83 c4 10             	add    $0x10,%esp
 }
-80104531:	8d 65 f4             	lea    -0xc(%ebp),%esp
-80104534:	89 d8                	mov    %ebx,%eax
-80104536:	5b                   	pop    %ebx
-80104537:	5e                   	pop    %esi
-80104538:	5f                   	pop    %edi
-80104539:	5d                   	pop    %ebp
-8010453a:	c3                   	ret
+80104537:	8d 65 f4             	lea    -0xc(%ebp),%esp
+8010453a:	89 d8                	mov    %ebx,%eax
+8010453c:	5b                   	pop    %ebx
+8010453d:	5e                   	pop    %esi
+8010453e:	5f                   	pop    %edi
+8010453f:	5d                   	pop    %ebp
+80104540:	c3                   	ret
     return -1;
-8010453b:	bb ff ff ff ff       	mov    $0xffffffff,%ebx
-80104540:	eb ef                	jmp    80104531 <clone+0x111>
-80104542:	2e 8d b4 26 00 00 00 	lea    %cs:0x0(%esi,%eiz,1),%esi
-80104549:	00 
-8010454a:	8d b6 00 00 00 00    	lea    0x0(%esi),%esi
+80104541:	bb ff ff ff ff       	mov    $0xffffffff,%ebx
+80104546:	eb ef                	jmp    80104537 <clone+0x117>
+80104548:	2e 8d b4 26 00 00 00 	lea    %cs:0x0(%esi,%eiz,1),%esi
+8010454f:	00 
 
 80104550 <join>:
 

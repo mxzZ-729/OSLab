@@ -186,6 +186,7 @@ growproc(int n)
   }
   *curproc->sz = sz;
   switchuvm(curproc);
+  
   release(curproc->memlock);
   return 0;
 }
@@ -596,7 +597,7 @@ clone (void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack)
   np->sz = curproc->sz;
   np->pgref = curproc->pgref;
   np->memlock = curproc->memlock;
-  (*np->pgref)++;
+
   np->parent = curproc;
   *np->tf = *curproc->tf;
 
@@ -630,6 +631,7 @@ clone (void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack)
 
   acquire(&ptable.lock);
   np->state = RUNNABLE;
+  (*np->pgref)++;
   release(&ptable.lock);
 
   return pid;

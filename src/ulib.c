@@ -144,6 +144,7 @@ thread_join(void)
   return pid;
 }
 
+// 返回variable的初始值同时完成variable+=value
 inline int
 fetch_and_add(int *variable, int value)
 {
